@@ -1,0 +1,82 @@
+BEGIN;
+BEGIN
+EXPLAIN
+select
+	o_year,
+	sum(case
+		when nation = 'MOROCCO' then volume
+		else 0
+	end) / sum(volume) as mkt_share
+from
+	(
+		select
+			extract(year from o_orderdate) as o_year,
+			l_extendedprice * (1 - l_discount) as volume,
+			n2.n_name as nation
+		from
+			part,
+			supplier,
+			lineitem,
+			orders,
+			customer,
+			nation n1,
+			nation n2,
+			region
+		where
+			p_partkey = l_partkey
+			and s_suppkey = l_suppkey
+			and l_orderkey = o_orderkey
+			and o_custkey = c_custkey
+			and c_nationkey = n1.n_nationkey
+			and n1.n_regionkey = r_regionkey
+			and r_name = 'AFRICA'
+			and s_nationkey = n2.n_nationkey
+			and o_orderdate between date '1995-01-01' and date '1996-12-31'
+			and p_type = 'SMALL PLATED TIN'
+	) as all_nations
+group by
+	o_year
+order by
+	o_year;
+                                                                               QUERY PLAN                                                                               
+------------------------------------------------------------------------------------------------------------------------------------------------------------------------
+ Sort  (cost=1786833.96..1786835.79 rows=732 width=38)
+   Sort Key: (date_part('year'::text, (orders.o_orderdate)::timestamp without time zone))
+   ->  HashAggregate  (cost=1786786.33..1786799.14 rows=732 width=38)
+         Group Key: date_part('year'::text, (orders.o_orderdate)::timestamp without time zone)
+         ->  Hash Join  (cost=39461.38..1786280.55 rows=25289 width=38)
+               Hash Cond: (supplier.s_nationkey = n2.n_nationkey)
+               ->  Nested Loop  (cost=39459.82..1785804.82 rows=25289 width=16)
+                     ->  Hash Join  (cost=39459.53..1777644.98 rows=25289 width=16)
+                           Hash Cond: (orders.o_custkey = customer.c_custkey)
+                           ->  Nested Loop  (cost=428.84..1737887.23 rows=126447 width=20)
+                                 ->  Nested Loop  (cost=428.41..1534142.66 rows=416116 width=16)
+                                       ->  Bitmap Heap Scan on part  (cost=427.84..28754.73 rows=13860 width=4)
+                                             Recheck Cond: ((p_type)::text = 'SMALL PLATED TIN'::text)
+                                             ->  Bitmap Index Scan on part_p_type_p_partkey_idx  (cost=0.00..424.38 rows=13860 width=0)
+                                                   Index Cond: ((p_type)::text = 'SMALL PLATED TIN'::text)
+                                       ->  Index Scan using lineitem_l_partkey_l_quantity_l_shipmode_idx on lineitem  (cost=0.56..108.30 rows=31 width=20)
+                                             Index Cond: (l_partkey = part.p_partkey)
+                                 ->  Index Scan using orders_o_orderkey_o_orderdate_idx on orders  (cost=0.43..0.48 rows=1 width=12)
+                                       Index Cond: ((o_orderkey = lineitem.l_orderkey) AND (o_orderdate >= '1995-01-01'::date) AND (o_orderdate <= '1996-12-31'::date))
+                           ->  Hash  (cost=35280.69..35280.69 rows=300000 width=4)
+                                 ->  Nested Loop  (cost=906.18..35280.69 rows=300000 width=4)
+                                       ->  Hash Join  (cost=1.07..2.47 rows=5 width=4)
+                                             Hash Cond: (n1.n_regionkey = region.r_regionkey)
+                                             ->  Seq Scan on nation n1  (cost=0.00..1.25 rows=25 width=8)
+                                             ->  Hash  (cost=1.06..1.06 rows=1 width=4)
+                                                   ->  Seq Scan on region  (cost=0.00..1.06 rows=1 width=4)
+                                                         Filter: (r_name = 'AFRICA'::bpchar)
+                                       ->  Bitmap Heap Scan on customer  (cost=905.11..6455.64 rows=60000 width=8)
+                                             Recheck Cond: (c_nationkey = n1.n_nationkey)
+                                             ->  Bitmap Index Scan on customer_c_nationkey_c_custkey_idx  (cost=0.00..890.11 rows=60000 width=0)
+                                                   Index Cond: (c_nationkey = n1.n_nationkey)
+                     ->  Index Scan using pk_supplier on supplier  (cost=0.29..0.31 rows=1 width=8)
+                           Index Cond: (s_suppkey = lineitem.l_suppkey)
+               ->  Hash  (cost=1.25..1.25 rows=25 width=30)
+                     ->  Seq Scan on nation n2  (cost=0.00..1.25 rows=25 width=30)
+ Planning time: 5.384 ms
+(36 rows)
+
+COMMIT;
+COMMIT

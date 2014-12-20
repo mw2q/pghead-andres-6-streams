@@ -1,0 +1,41 @@
+BEGIN;
+BEGIN
+select
+	l_orderkey,
+	sum(l_extendedprice * (1 - l_discount)) as revenue,
+	o_orderdate,
+	o_shippriority
+from
+	customer,
+	orders,
+	lineitem
+where
+	c_mktsegment = 'HOUSEHOLD'
+	and c_custkey = o_custkey
+	and l_orderkey = o_orderkey
+	and o_orderdate < date '1995-03-27'
+	and l_shipdate > date '1995-03-27'
+group by
+	l_orderkey,
+	o_orderdate,
+	o_shippriority
+order by
+	revenue desc,
+	o_orderdate
+LIMIT 10;
+ l_orderkey |     revenue      | o_orderdate | o_shippriority 
+------------+------------------+-------------+----------------
+   21996356 | 429022.244830501 | 1995-03-26  |              0
+   47577254 | 426741.345017579 | 1995-03-18  |              0
+   21404195 | 424534.223549596 | 1995-03-25  |              0
+   35312039 | 422403.532181838 | 1995-03-05  |              0
+   34684896 | 417863.045747476 | 1995-03-11  |              0
+   34575136 |  413225.01327382 | 1995-03-26  |              0
+   47741510 | 412126.905366024 | 1995-03-09  |              0
+   46891527 | 411812.321513223 | 1995-03-25  |              0
+   11646177 | 410971.552926016 | 1995-03-16  |              0
+   15476128 | 410950.184044041 | 1995-03-05  |              0
+(10 rows)
+
+COMMIT;
+COMMIT
